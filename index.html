@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Streckenliste</title>
+<meta name="description" content="Abschüsse im Revier erfassen und am Ende des Jagdjahres als Streckenliste (PDF) drucken oder verschicken.">
+<meta name="theme-color" content="#1e3d2c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* Layout: grüner Kopf mit Jagdjahr, darunter Übersicht + Liste; Eingabe als Vollbild-Blatt; feste Leiste unten für das PDF. */
+:root{
+  --forest:#1e3d2c; --forest-2:#2b5640; --on-forest:#f0ece0;
+  --bg:#eef1ec; --surface:#ffffff; --surface-2:#f6f8f4; --line:#d6ddd5;
+  --ink:#18211c; --muted:#5d6a62; --accent:#c27a22; --accent-ink:#ffffff;
+  --danger:#b3362b; --chip:#e3e9e1;
+  --r:14px; --shadow:0 1px 2px rgba(20,40,28,.08),0 4px 14px rgba(20,40,28,.06);
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1612; --surface:#18221c; --surface-2:#1d2922; --line:#2c3a31;
+  --ink:#e5ebe4; --muted:#9aa89f; --accent:#e09d48; --accent-ink:#1b1305;
+  --danger:#e0675c; --chip:#243229; --shadow:none; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:17px/1.4 var(--font);-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+
+/* Kopf */
+header.top{background:var(--forest);color:var(--on-forest);padding-top:env(safe-area-inset-top)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:14px 18px}
+.brand{flex:1;min-width:0}
+.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.year{display:flex;align-items:center;gap:6px;margin-top:2px}
+.year strong{font-size:26px;font-weight:750;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.iconbtn{width:48px;height:48px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:inherit;display:grid;place-items:center;flex:none}
+.iconbtn svg{width:24px;height:24px}
+.iconbtn.sm{width:40px;height:40px}
+.iconbtn:active{background:rgba(255,255,255,.22)}
+
+/* Übersicht */
+.summary{display:flex;gap:8px;overflow-x:auto;padding-block:14px 4px;scrollbar-width:none}
+.summary::-webkit-scrollbar{display:none}
+.pill{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:15px;white-space:nowrap}
+.pill b{font-variant-numeric:tabular-nums;margin-right:4px}
+.pill.total{background:var(--forest);color:var(--on-forest);border-color:var(--forest)}
+
+.add{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-block:12px 8px;min-height:68px;border:0;border-radius:var(--r);background:var(--accent);color:var(--accent-ink);font-size:21px;font-weight:700;box-shadow:var(--shadow)}
+.add svg{width:28px;height:28px}
+.add:active{transform:translateY(1px)}
+
+.month{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px}
+.list{display:flex;flex-direction:column;gap:8px}
+.entry{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.entry .nr{grid-row:span 2;width:44px;height:44px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-weight:750;font-variant-numeric:tabular-nums;color:var(--forest-2)}
+@media (prefers-color-scheme:dark){.entry .nr{color:var(--ink)}}
+.entry .t{font-weight:700;font-size:18px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entry .d{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px;text-align:right}
+.entry .s{color:var(--muted);font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entry .w{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;font-size:15px}
+.tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--chip);color:var(--muted);vertical-align:2px;margin-left:6px}
+.tag.fall{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
+
+.empty{text-align:center;color:var(--muted);padding:36px 12px 12px}
+.empty svg{width:64px;height:64px;opacity:.5}
+.empty p{max-width:30ch;margin:8px auto}
+
+.spacer{height:calc(110px + env(safe-area-inset-bottom))}
+.bottombar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.bottombar .wrap{padding-top:12px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:58px;border-radius:var(--r);border:2px solid var(--forest);background:var(--forest);color:var(--on-forest);font-weight:700;font-size:18px}
+.btn svg{width:24px;height:24px}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.danger{background:transparent;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,transparent)}
+.btn.danger.solid{background:var(--danger);color:#fff;border-color:var(--danger)}
+@media (prefers-color-scheme:dark){.btn{border-color:var(--forest-2);background:var(--forest-2)}}
+
+/* Blätter (Eingabe, Einstellungen, PDF) */
+.sheet{position:fixed;inset:0;background:var(--bg);overflow-y:auto;z-index:20;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.sheet header{position:sticky;top:0;z-index:2;background:var(--forest);color:var(--on-forest);padding-top:env(safe-area-inset-top)}
+.sheet header .wrap{display:flex;align-items:center;gap:10px;padding-block:10px}
+.sheet header h2{flex:1;margin:0;font-size:20px}
+.sheet .body{padding-block:16px 40px;display:flex;flex-direction:column;gap:22px}
+
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field>label,.field>.lbl{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.field .hint{font-size:14px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{width:100%;min-height:56px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);padding:12px 14px;font-size:18px}
+textarea{min-height:96px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
+.with-btn{display:flex;gap:8px}
+.with-btn input{flex:1;min-width:0}
+.with-btn button{flex:none;min-width:56px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;padding:0 12px}
+.with-btn button svg{width:24px;height:24px}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.opt{min-height:56px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-weight:650;font-size:16px;padding:8px 6px;line-height:1.15}
+.opt[aria-pressed=true]{background:var(--forest);border-color:var(--forest);color:var(--on-forest)}
+@media (prefers-color-scheme:dark){.opt[aria-pressed=true]{background:var(--forest-2);border-color:var(--accent)}}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg .opt{flex:1 1 calc(33% - 8px);min-width:96px}
+.unit{position:relative}
+.unit input{padding-right:48px}
+.unit span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:650}
+
+details.more{border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface)}
+details.more summary{list-style:none;padding:16px;font-weight:700;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:"+";font-size:24px;line-height:1;color:var(--muted)}
+details.more[open] summary::after{content:"–"}
+details.more .inner{padding:0 16px 16px;display:flex;flex-direction:column;gap:18px}
+
+.confirm{background:var(--surface);border:1.5px solid color-mix(in srgb,var(--danger) 45%,transparent);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h3{margin:0;font-size:18px}
+.card p{margin:0;color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:10px}
+
+.toast{position:fixed;left:50%;width:max-content;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:650;z-index:50;max-width:calc(100% - 32px);text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+.helplink{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:28px;background:none;border:0;color:var(--muted);font-weight:650;font-size:16px;min-height:48px}
+.helplink svg{width:22px;height:22px}
+.ticket{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.ticket:first-child{border-top:0}
+.ticket b{font-variant-numeric:tabular-nums}
+.ticket p{grid-column:1/-1;margin:0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.ticket .st{font-size:13px;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--muted);border:0}
+.ticket .st.open{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--ink)}
+.check{display:flex;gap:12px;align-items:center;min-height:48px;font-size:17px}
+.check input{width:26px;height:26px;accent-color:var(--forest)}
+.preview{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.preview .ph{background:var(--forest);color:var(--on-forest);padding:14px 16px}
+.preview .ph b{display:block;font-size:19px}
+.preview table{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.preview th,.preview td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right}
+.preview th:first-child,.preview td:first-child{text-align:left}
+.preview th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.preview tr:last-child td{border-bottom:0;font-weight:750}
+</style>
+</head>
+<body>
+
+<!-- Hauptansicht -->
+<header class="top">
+  <div class="wrap">
+    <button class="iconbtn sm" id="prevYear" aria-label="Voriges Jagdjahr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="brand">
+      <small id="revierName">Jagdjahr</small>
+      <div class="year"><strong id="yearLabel">2026/27</strong></div>
+    </div>
+    <button class="iconbtn sm" id="nextYear" aria-label="Nächstes Jagdjahr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="iconbtn" id="openSettings" aria-label="Einstellungen und Datensicherung"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="summary" id="summary"></div>
+  <button class="add" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Abschuss eintragen</button>
+  <div id="entries"></div>
+  <button class="helplink" id="openHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Problem? Hilfe anfordern</button>
+  <div class="spacer"></div>
+</main>
+
+<div class="bottombar">
+  <div class="wrap">
+    <button class="btn" id="openPdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Streckenliste als PDF</button>
+  </div>
+</div>
+
+<!-- Eingabe -->
+<section class="sheet" id="formSheet" hidden aria-labelledby="formTitle">
+  <header><div class="wrap">
+    <button class="iconbtn sm" data-close aria-label="Schließen ohne Speichern"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <h2 id="formTitle">Neuer Abschuss</h2>
+  </div></header>
+  <form class="wrap body" id="entryForm" novalidate>
+    <div class="field">
+      <span class="lbl">Wildart</span>
+      <div class="grid" id="artGrid"></div>
+      <select id="artMore" aria-label="Weitere Wildarten"></select>
+    </div>
+
+    <div class="field">
+      <span class="lbl">Geschlecht</span>
+      <div class="seg" id="sexSeg"></div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">Altersklasse</span>
+      <div class="seg" id="ageSeg"></div>
+    </div>
+
+    <div class="row">
+      <div class="field"><label for="fDate">Datum</label><input type="date" id="fDate" required></div>
+      <div class="field"><label for="fTime">Uhrzeit</label><input type="time" id="fTime"></div>
+    </div>
+
+    <div class="field">
+      <label for="fOrt">Ort / Revierteil</label>
+      <div class="with-btn">
+        <input type="text" id="fOrt" list="ortList" autocomplete="off" placeholder="z. B. Hochsitz Eichenwiese">
+        <button type="button" id="gpsBtn" aria-label="Aktuellen Standort übernehmen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+      </div>
+      <span class="hint" id="gpsHint" hidden></span>
+      <datalist id="ortList"></datalist>
+    </div>
+
+    <div class="field">
+      <label for="fErleger">Erleger</label>
+      <input type="text" id="fErleger" list="erlegerList" autocomplete="off">
+      <datalist id="erlegerList"></datalist>
+    </div>
+
+    <div class="field">
+      <label for="fGewicht">Gewicht aufgebrochen</label>
+      <div class="unit"><input type="text" inputmode="decimal" id="fGewicht" placeholder="0,0"><span>kg</span></div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">Art des Abgangs</span>
+      <div class="seg" id="abgangSeg"></div>
+    </div>
+
+    <div class="field">
+      <label for="fNotiz">Besonderheiten</label>
+      <textarea id="fNotiz" placeholder="z. B. Abnormes Gehörn, krank erlegt, Nachsuche …"></textarea>
+    </div>
+
+    <details class="more" id="moreBox">
+      <summary>Weitere Angaben</summary>
+      <div class="inner">
+        <div class="field"><label for="fMarke">Wildmarke / Wildursprungsschein-Nr.</label><input type="text" id="fMarke" autocomplete="off"></div>
+        <div class="field" id="trichField"><label for="fTrich">Trichinenprobe-Nr.</label><input type="text" id="fTrich" autocomplete="off"></div>
+        <div class="field"><label for="fVerw">Verwertung</label>
+          <select id="fVerw"><option value="">–</option><option>Eigenverbrauch</option><option>Verkauf privat</option><option>Wildhändler</option><option>Entsorgt / Tierkörperbeseitigung</option></select>
+        </div>
+        <div class="field"><label for="fAlter">Geschätztes Alter (Jahre)</label><input type="text" inputmode="numeric" id="fAlter" autocomplete="off"></div>
+      </div>
+    </details>
+
+    <button type="submit" class="btn" id="saveBtn" style="min-height:64px;font-size:20px">Speichern</button>
+    <button type="button" class="btn danger" id="delBtn" hidden>Eintrag löschen</button>
+    <div class="confirm" id="delConfirm" hidden>
+      <b>Diesen Eintrag wirklich löschen?</b>
+      <div class="row"><button type="button" class="btn ghost" id="delNo">Behalten</button><button type="button" class="btn danger solid" id="delYes">Löschen</button></div>
+    </div>
+  </form>
+</section>
+
+<!-- PDF -->
+<section class="sheet" id="pdfSheet" hidden>
+  <header><div class="wrap">
+    <button class="iconbtn sm" data-close aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <h2>Streckenliste</h2>
+  </div></header>
+  <div class="wrap body">
+    <div class="preview" id="pdfPreview"></div>
+    <div class="stack">
+      <button class="btn" id="pdfShare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Per E-Mail oder WhatsApp senden</button>
+      <button class="btn ghost" id="pdfOpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>PDF öffnen zum Drucken</button>
+    </div>
+    <p class="hint" style="color:var(--muted);margin:0">Das PDF enthält alle Einträge vom 1. April bis 31. März, eine Zusammenfassung je Wildart und eine Zeile für die Unterschrift. Die Angaben zum Revier kommen aus den Einstellungen.</p>
+  </div>
+</section>
+
+<!-- Hilfe / Tickets -->
+<section class="sheet" id="helpSheet" hidden>
+  <header><div class="wrap">
+    <button class="iconbtn sm" data-close aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <h2>Hilfe anfordern</h2>
+  </div></header>
+  <form class="wrap body" id="helpForm" novalidate>
+    <div class="card">
+      <h3>Was ist passiert?</h3>
+      <p id="helpWho">Beschreiben Sie das Problem in eigenen Worten. Die Meldung geht als Nachricht raus, zum Beispiel per WhatsApp oder E-Mail.</p>
+      <div class="field"><label for="hText">Beschreibung</label><textarea id="hText" placeholder="z. B. Beim Speichern vom Rehbock kam eine Fehlermeldung …"></textarea></div>
+      <div class="field"><label for="hPhoto">Foto oder Bildschirmfoto (freiwillig)</label><input type="file" id="hPhoto" accept="image/*"></div>
+      <label class="check"><input type="checkbox" id="hData" checked> Meine Einträge mitschicken (hilft bei der Fehlersuche)</label>
+      <button type="submit" class="btn" id="hSend">Meldung senden</button>
+    </div>
+    <div class="card">
+      <h3>Meine Meldungen</h3>
+      <div id="ticketList"></div>
+    </div>
+  </form>
+</section>
+
+<!-- Einstellungen -->
+<section class="sheet" id="setSheet" hidden>
+  <header><div class="wrap">
+    <button class="iconbtn sm" data-close aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <h2>Einstellungen</h2>
+  </div></header>
+  <form class="wrap body" id="setForm">
+    <div class="card">
+      <h3>Angaben für die Streckenliste</h3>
+      <div class="field"><label for="sJaeger">Jagdausübungsberechtigter</label><input type="text" id="sJaeger" autocomplete="name"></div>
+      <div class="field"><label for="sErleger">Erleger (Vorgabe für neue Einträge)</label><input type="text" id="sErleger"></div>
+      <div class="field"><label for="sRevier">Revier / Jagdbezirk</label><input type="text" id="sRevier"></div>
+      <div class="row">
+        <div class="field"><label for="sRevNr">Revier-Nr.</label><input type="text" id="sRevNr"></div>
+        <div class="field"><label for="sGroesse">Größe (ha)</label><input type="text" inputmode="decimal" id="sGroesse"></div>
+      </div>
+      <div class="field"><label for="sKreis">Landkreis / Untere Jagdbehörde</label><input type="text" id="sKreis"></div>
+      <button type="submit" class="btn">Speichern</button>
+    </div>
+
+    <div class="card">
+      <h3>Hilfe aus der Ferne</h3>
+      <p>Wer hilft, wenn etwas nicht klappt? Meldungen über „Hilfe anfordern“ gehen an diese Person.</p>
+      <div class="field"><label for="sHelfer">Name</label><input type="text" id="sHelfer" placeholder="z. B. Benjamin"></div>
+      <div class="field"><label for="sHelferMail">E-Mail</label><input type="text" inputmode="email" id="sHelferMail" autocomplete="off"></div>
+      <button type="submit" class="btn">Speichern</button>
+    </div>
+
+    <div class="card">
+      <h3>Datensicherung</h3>
+      <p>Die Einträge liegen nur auf diesem Handy. Schicken Sie sich ab und zu eine Sicherung, zum Beispiel per E-Mail. Damit lassen sich die Daten auch auf einem neuen Handy wiederherstellen.</p>
+      <p id="lastBackup"></p>
+      <button type="button" class="btn" id="backupBtn">Sicherung senden</button>
+      <button type="button" class="btn ghost" id="restoreBtn">Sicherung einspielen</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+      <button type="button" class="btn ghost" id="csvBtn">Tabelle für Excel (CSV)</button>
+    </div>
+
+    <div class="card">
+      <h3>Als App auf den Startbildschirm</h3>
+      <p>In Chrome oben rechts auf die drei Punkte tippen, dann „Zum Startbildschirm hinzufügen“ oder „App installieren“. Danach funktioniert die Streckenliste auch ohne Netz im Revier.</p>
+      <button type="button" class="btn ghost" id="installBtn" hidden>Jetzt installieren</button>
+    </div>
+  </form>
+</section>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script>
+'use strict';
+/* ---------- Stammdaten ---------- */
+const SCHALEN = ['Rehwild','Rotwild','Damwild','Sikawild','Muffelwild','Gamswild','Schwarzwild'];
+const QUICK = ['Rehwild','Schwarzwild','Fuchs','Rotwild','Damwild','Waschbär','Dachs','Feldhase','Ringeltaube'];
+const MORE = ['Sikawild','Muffelwild','Gamswild','Marderhund','Steinmarder','Baummarder','Iltis','Hermelin','Mink','Nutria','Bisam','Wildkaninchen','Fasan','Rebhuhn','Türkentaube','Stockente','Krickente','Graugans','Kanadagans','Nilgans','Blässhuhn','Waldschnepfe','Rabenkrähe','Elster','Sonstige'];
+const SEX = {
+  Rehwild:['Bock','Ricke'], Rotwild:['Hirsch','Tier'], Damwild:['Hirsch','Tier'], Sikawild:['Hirsch','Tier'],
+  Muffelwild:['Widder','Schaf'], Gamswild:['Bock','Geiß'], Schwarzwild:['männlich','weiblich'],
+  Fuchs:['Rüde','Fähe'], Marderhund:['Rüde','Fähe'], Waschbär:['Rüde','Fähe'], Dachs:['Rüde','Fähe'],
+  Feldhase:['Rammler','Häsin'], Wildkaninchen:['Rammler','Häsin'], Fasan:['Hahn','Henne'], Rebhuhn:['Hahn','Henne'],
+  Stockente:['Erpel','Ente'], Krickente:['Erpel','Ente']
+};
+function sexLabels(art){ return SEX[art] || ['männlich','weiblich']; }
+function ageClasses(art, sex){
+  const m = sex==='m', w = sex==='w';
+  switch(art){
+    case 'Rehwild': return m?['Bockkitz','Jährling','Bock mehrjährig']: w?['Rickenkitz','Schmalreh','Ricke']:['Kitz','Jährling / Schmalreh','mehrjährig'];
+    case 'Rotwild': case 'Damwild': case 'Sikawild':
+      return m?['Hirschkalb','Schmalspießer','Hirsch Kl. III','Hirsch Kl. II','Hirsch Kl. I']: w?['Wildkalb','Schmaltier','Alttier']:['Kalb','Jährling','mehrjährig'];
+    case 'Muffelwild': return m?['Widderlamm','Jährlingswidder','Widder']: w?['Schaflamm','Schmalschaf','Schaf']:['Lamm','Jährling','mehrjährig'];
+    case 'Gamswild': return ['Kitz','Jährling','mehrjährig'];
+    case 'Schwarzwild': return m?['Frischling','Überläufer','Keiler']: w?['Frischling','Überläufer','Bache']:['Frischling','Überläufer','mehrjährig'];
+    default: return ['Jungtier','ausgewachsen'];
+  }
+}
+const ABGANG = ['Erlegt','Fallwild Verkehr','Fallwild sonstig'];
+
+/* ---------- Speicher ---------- */
+const KEY='streckenliste.v1', SKEY='streckenliste.settings.v1';
+function load(k,def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast('Speichern fehlgeschlagen. Ist der Speicher voll?'); } }
+let db = load(KEY, {entries:[]});
+let settings = load(SKEY, {});
+function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(settings)); }catch(e){} }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+/* ---------- Hilfen ---------- */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const todayISO = () => { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const nowTime = () => { const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); };
+function jyOf(iso){ const [y,m]=iso.split('-').map(Number); return m>=4?y:y-1; }
+function jyLabel(y){ return y+'/'+String((y+1)%100).padStart(2,'0'); }
+function deDate(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y; }
+const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+function kg(v){ if(v==null||v==='') return ''; return Number(v).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}); }
+function parseKg(s){ s=String(s||'').trim().replace(',','.'); if(!s) return null; const n=parseFloat(s); return isFinite(n)?Math.round(n*10)/10:null; }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function sexText(e){ return e.sex==='u'||!e.sex ? 'unbekannt' : sexLabels(e.art)[e.sex==='m'?0:1]; }
+let tt; function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(tt); tt=setTimeout(()=>t.hidden=true,2600); }
+
+function yearEntries(y){
+  return db.entries.filter(e=>jyOf(e.date)===y).sort((a,b)=>(a.date+(a.time||'')+a.created).localeCompare(b.date+(b.time||'')+b.created));
+}
+let year = jyOf(todayISO());
+
+/* ---------- Hauptansicht ---------- */
+function render(){
+  $('#yearLabel').textContent = jyLabel(year);
+  $('#revierName').textContent = 'Jagdjahr'+(settings.revier ? ' · '+settings.revier : '');
+  const list = yearEntries(year);
+  const counts = {};
+  list.forEach(e=>counts[e.art]=(counts[e.art]||0)+1);
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  $('#summary').innerHTML = `<span class="pill total"><b>${list.length}</b>Stück gesamt</span>` +
+    sorted.map(([a,n])=>`<span class="pill"><b>${n}</b>${esc(a)}</span>`).join('');
+  $('#summary').hidden = list.length===0;
+
+  const box = $('#entries');
+  if(!list.length){
+    box.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 2l5 7h-3l4 6h-3l3 5H6l3-5H6l4-6H7z"/><path d="M12 20v2"/></svg>
+      <p><b>Noch keine Einträge im Jagdjahr ${jyLabel(year)}.</b></p><p>Tippen Sie auf „Abschuss eintragen“. Das geht auch ohne Netz.</p></div>`;
+    return;
+  }
+  // Neueste zuerst, gruppiert nach Monat; Nummer = laufende Nr. im Jagdjahr
+  const numbered = list.map((e,i)=>({e,nr:i+1})).reverse();
+  let html='', cur='';
+  numbered.forEach(({e,nr})=>{
+    const [y,m]=e.date.split('-');
+    const key=y+m;
+    if(key!==cur){ if(cur) html+='</div>'; cur=key; html+=`<div class="month">${MONTHS[+m-1]} ${y}</div><div class="list">`; }
+    const sub=[sexText(e), e.age, e.ort].filter(Boolean).join(' · ');
+    const fall = e.abgang && e.abgang!=='Erlegt' ? `<span class="tag fall">${e.abgang==='Fallwild Verkehr'?'Verkehr':'Fallwild'}</span>`:'';
+    html+=`<button class="entry" data-id="${e.id}">
+      <span class="nr">${nr}</span>
+      <span class="t">${esc(e.art)}${fall}</span>
+      <span class="d">${deDate(e.date).slice(0,6)}${e.time?' '+e.time:''}</span>
+      <span class="s">${esc(sub)}</span>
+      <span class="w">${e.weight!=null?kg(e.weight)+' kg':''}</span>
+    </button>`;
+  });
+  box.innerHTML = html+'</div>';
+}
+$('#entries').addEventListener('click',ev=>{ const b=ev.target.closest('.entry'); if(b) openForm(b.dataset.id); });
+$('#prevYear').onclick=()=>{year--;render();};
+$('#nextYear').onclick=()=>{year++;render();};
+
+/* ---------- Blätter ---------- */
+function openSheet(id){ document.querySelectorAll('.sheet').forEach(s=>s.hidden = s.id!==id); document.body.style.overflow='hidden'; history.pushState({sheet:id},''); }
+function closeSheets(fromPop){ document.querySelectorAll('.sheet').forEach(s=>s.hidden=true); document.body.style.overflow=''; if(!fromPop && history.state && history.state.sheet) history.back(); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeSheets());
+window.addEventListener('popstate',()=>closeSheets(true)); // Zurück-Taste auf Android schließt das Blatt
+
+/* ---------- Eingabe ---------- */
+let form = {};
+function segButtons(el, options, value, onPick){
+  el.innerHTML = options.map(o=>`<button type="button" class="opt" data-v="${esc(o.v)}" aria-pressed="${o.v===value}">${esc(o.t)}</button>`).join('');
+  el.onclick = ev=>{ const b=ev.target.closest('.opt'); if(!b) return; onPick(b.dataset.v); };
+}
+function drawForm(){
+  const isQuick = QUICK.includes(form.art);
+  segButtons($('#artGrid'), QUICK.map(a=>({v:a,t:a})), form.art, v=>{ form.art=v; form.age=''; drawForm(); });
+  const sel=$('#artMore');
+  sel.innerHTML = `<option value="">Weitere Wildart …</option>`+MORE.map(a=>`<option ${a===form.art?'selected':''}>${a}</option>`).join('');
+  sel.style.borderColor = (!isQuick && form.art) ? 'var(--forest)' : '';
+  const [ml,wl]=sexLabels(form.art);
+  segButtons($('#sexSeg'), [{v:'m',t:ml},{v:'w',t:wl},{v:'u',t:'unbekannt'}], form.sex, v=>{ form.sex=v; if(!ageClasses(form.art,v).includes(form.age)) form.age=''; drawForm(); });
+  segButtons($('#ageSeg'), ageClasses(form.art, form.sex).map(a=>({v:a,t:a})), form.age, v=>{ form.age = form.age===v?'':v; drawForm(); });
+  segButtons($('#abgangSeg'), ABGANG.map(a=>({v:a,t:a})), form.abgang, v=>{ form.abgang=v; drawForm(); });
+  $('#trichField').hidden = !['Schwarzwild','Dachs','Waschbär','Marderhund','Nutria','Fuchs'].includes(form.art);
+}
+$('#artMore').onchange = e=>{ if(e.target.value){ form.art=e.target.value; form.age=''; drawForm(); } };
+
+function fillLists(){
+  const orte=[...new Set(db.entries.map(e=>e.ort).filter(Boolean))];
+  const erl=[...new Set([settings.erleger, ...db.entries.map(e=>e.erleger)].filter(Boolean))];
+  $('#ortList').innerHTML = orte.map(o=>`<option value="${esc(o)}">`).join('');
+  $('#erlegerList').innerHTML = erl.map(o=>`<option value="${esc(o)}">`).join('');
+}
+function openForm(id){
+  const e = id ? db.entries.find(x=>x.id===id) : null;
+  form = e ? {...e} : {id:null, art:'Rehwild', sex:'', age:'', abgang:'Erlegt'};
+  // Datum: neues Jagdjahr? Dann heutiges Datum nur, wenn es ins gezeigte Jahr passt
+  let d = todayISO(); if(!e && jyOf(d)!==year) d = (year+1)+'-03-31';
+  $('#formTitle').textContent = e ? 'Eintrag bearbeiten' : 'Neuer Abschuss';
+  $('#fDate').value = e ? e.date : d;
+  $('#fTime').value = e ? (e.time||'') : (jyOf(todayISO())===year?nowTime():'');
+  $('#fOrt').value = e ? (e.ort||'') : (db.entries.length? (yearEntries(year).slice(-1)[0]||{}).ort||'' : '');
+  $('#fErleger').value = e ? (e.erleger||'') : (settings.erleger||settings.jaeger||'');
+  $('#fGewicht').value = e && e.weight!=null ? String(e.weight).replace('.',',') : '';
+  $('#fNotiz').value = e ? (e.notiz||'') : '';
+  $('#fMarke').value = e ? (e.marke||'') : '';
+  $('#fTrich').value = e ? (e.trich||'') : '';
+  $('#fVerw').value = e ? (e.verw||'') : '';
+  $('#fAlter').value = e ? (e.alter||'') : '';
+  $('#moreBox').open = !!(e && (e.marke||e.trich||e.verw||e.alter));
+  $('#delBtn').hidden = !e; $('#delConfirm').hidden = true;
+  $('#gpsHint').hidden = true;
+  fillLists(); drawForm();
+  openSheet('formSheet'); $('#formSheet').scrollTop=0;
+}
+$('#addBtn').onclick=()=>openForm(null);
+
+$('#entryForm').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const date=$('#fDate').value;
+  if(!form.art){ toast('Bitte eine Wildart wählen.'); return; }
+  if(!date){ toast('Bitte ein Datum eingeben.'); $('#fDate').focus(); return; }
+  const w=$('#fGewicht').value.trim();
+  if(w && parseKg(w)==null){ toast('Gewicht bitte als Zahl, z. B. 14,5'); $('#fGewicht').focus(); return; }
+  const rec = {
+    id: form.id || uid(), created: form.created || Date.now(), updated: Date.now(),
+    art: form.art, sex: form.sex||'u', age: form.age||'', abgang: form.abgang||'Erlegt',
+    date, time: $('#fTime').value, ort: $('#fOrt').value.trim(), gps: form.gps||null,
+    erleger: $('#fErleger').value.trim(), weight: parseKg(w),
+    notiz: $('#fNotiz').value.trim(), marke: $('#fMarke').value.trim(), trich: $('#fTrich').value.trim(),
+    verw: $('#fVerw').value, alter: $('#fAlter').value.trim()
+  };
+  const i = db.entries.findIndex(x=>x.id===rec.id);
+  if(i>=0) db.entries[i]=rec; else db.entries.push(rec);
+  persist();
+  if(!settings.erleger && rec.erleger){ settings.erleger=rec.erleger; saveSettings(); }
+  year = jyOf(rec.date);
+  closeSheets(); render();
+  toast(i>=0 ? 'Änderung gespeichert' : rec.art+' eingetragen');
+});
+$('#delBtn').onclick=()=>{ $('#delConfirm').hidden=false; $('#delConfirm').scrollIntoView({behavior:'smooth',block:'center'}); };
+$('#delNo').onclick=()=>{ $('#delConfirm').hidden=true; };
+$('#delYes').onclick=()=>{ db.entries=db.entries.filter(x=>x.id!==form.id); persist(); closeSheets(); render(); toast('Eintrag gelöscht'); };
+
+$('#gpsBtn').onclick=()=>{
+  const hint=$('#gpsHint'); hint.hidden=false;
+  if(!navigator.geolocation){ hint.textContent='Standort ist auf diesem Gerät nicht verfügbar.'; return; }
+  hint.textContent='Standort wird bestimmt …';
+  navigator.geolocation.getCurrentPosition(p=>{
+    const lat=p.coords.latitude.toFixed(5), lon=p.coords.longitude.toFixed(5);
+    form.gps={lat:+lat,lon:+lon};
+    const o=$('#fOrt'); if(!o.value.trim()) o.value=`GPS ${lat.replace('.',',')} / ${lon.replace('.',',')}`;
+    hint.textContent=`Standort gespeichert (${lat}, ${lon}, ± ${Math.round(p.coords.accuracy)} m).`;
+  },err=>{ hint.textContent = err.code===1 ? 'Standort-Freigabe wurde abgelehnt. In den Chrome-Einstellungen erlauben.' : 'Kein Standort gefunden. Bitte Ort von Hand eintragen.'; },{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+};
+
+/* ---------- Auswertung ---------- */
+function summarize(list){
+  const by={};
+  list.forEach(e=>{
+    const s = by[e.art] ||= {art:e.art,m:0,w:0,u:0,fall:0,n:0,kg:0,kgN:0,ages:{}};
+    s.n++; s[e.sex==='m'?'m':e.sex==='w'?'w':'u']++;
+    if(e.abgang && e.abgang!=='Erlegt') s.fall++;
+    if(e.weight!=null){ s.kg+=e.weight; s.kgN++; }
+    if(e.age) s.ages[e.age]=(s.ages[e.age]||0)+1;
+  });
+  const order = a => { const i=SCHALEN.indexOf(a); return i>=0?i:100; };
+  return Object.values(by).sort((a,b)=>order(a.art)-order(b.art) || b.n-a.n || a.art.localeCompare(b.art));
+}
+
+function renderPreview(){
+  const list=yearEntries(year), sum=summarize(list);
+  const rows = sum.map(s=>`<tr><td>${esc(s.art)}</td><td>${s.m}</td><td>${s.w}</td><td>${s.fall}</td><td>${s.n}</td></tr>`).join('');
+  $('#pdfPreview').innerHTML = `<div class="ph"><b>Jagdjahr ${jyLabel(year)}</b>01.04.${year} – 31.03.${year+1}${settings.revier?' · '+esc(settings.revier):''}</div>`+
+    (list.length? `<div style="overflow-x:auto"><table><thead><tr><th>Wildart</th><th>m</th><th>w</th><th>Fallwild</th><th>Gesamt</th></tr></thead><tbody>${rows}<tr><td>Gesamt</td><td>${sum.reduce((a,s)=>a+s.m,0)}</td><td>${sum.reduce((a,s)=>a+s.w,0)}</td><td>${sum.reduce((a,s)=>a+s.fall,0)}</td><td>${list.length}</td></tr></tbody></table></div>`
+      : `<p style="padding:16px;margin:0;color:var(--muted)">In diesem Jagdjahr gibt es noch keine Einträge. Das PDF enthält dann nur den Kopf und die Unterschriftszeile.</p>`);
+}
+$('#openPdf').onclick=()=>{ renderPreview(); openSheet('pdfSheet'); };
+
+/* ---------- PDF ---------- */
+function buildPdf(y){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const W=297, H=210, M=14;
+  const GREEN=[30,61,44], OCHRE=[194,122,34], INK=[24,33,28], MUTED=[95,107,99], LINE=[214,221,213], TINT=[241,244,239];
+  const list=yearEntries(y), sum=summarize(list);
+
+  const head = ()=>{
+    doc.setFillColor(...GREEN); doc.rect(0,0,W,24,'F');
+    doc.setFillColor(...OCHRE); doc.rect(0,24,W,1.2,'F');
+    doc.setTextColor(240,236,224); doc.setFont('helvetica','bold'); doc.setFontSize(20);
+    doc.text('Streckenliste', M, 13);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+    doc.text(`Jagdjahr ${jyLabel(y)}  ·  01.04.${y} bis 31.03.${y+1}`, M, 19.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(settings.revier||'', W-M, 13, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    const r=[settings.revnr?'Revier-Nr. '+settings.revnr:'', settings.groesse?settings.groesse+' ha':'', settings.kreis||''].filter(Boolean).join('  ·  ');
+    doc.text(r, W-M, 19.5, {align:'right'});
+  };
+  head();
+
+  // Stammdatenblock
+  let yPos=34;
+  doc.setTextColor(...MUTED); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  const meta=[['JAGDAUSÜBUNGSBERECHTIGTER',settings.jaeger||''],['REVIER / JAGDBEZIRK',settings.revier||''],['UNTERE JAGDBEHÖRDE',settings.kreis||''],['STRECKE GESAMT',String(list.length)+' Stück']];
+  const colW=(W-2*M)/4;
+  meta.forEach(([k,v],i)=>{ doc.setTextColor(...MUTED); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.text(k, M+i*colW, yPos);
+    doc.setTextColor(...INK); doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.text(v||'–', M+i*colW, yPos+5.5); });
+  doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, yPos+10, W-M, yPos+10);
+
+  // Einzelnachweis
+  const body = list.map((e,i)=>[
+    i+1, deDate(e.date)+(e.time?'\n'+e.time+' Uhr':''), e.art, sexText(e), e.age||'', e.weight!=null?kg(e.weight):'',
+    e.ort||'', e.erleger||'', e.abgang||'Erlegt', e.marke||'',
+    [e.notiz, e.trich?'Trichinen-Nr. '+e.trich:'', e.verw, e.alter?'ca. '+e.alter+' J.':''].filter(Boolean).join('; ')
+  ]);
+  doc.setTextColor(...GREEN); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Einzelnachweis', M, yPos+18);
+  doc.autoTable({
+    startY: yPos+21, margin:{left:M,right:M,top:32,bottom:14},
+    head:[['Nr.','Datum','Wildart','Geschlecht','Altersklasse','kg','Ort / Revierteil','Erleger','Abgang','Wildmarke','Besonderheiten']],
+    body: body.length?body:[[{content:'Keine Einträge in diesem Jagdjahr.',colSpan:11,styles:{halign:'center',textColor:MUTED}}]],
+    theme:'plain',
+    styles:{font:'helvetica',fontSize:8.6,cellPadding:{top:2.2,bottom:2.2,left:1.8,right:1.8},textColor:INK,lineColor:LINE,lineWidth:{bottom:0.25},valign:'top',overflow:'linebreak'},
+    headStyles:{fillColor:GREEN,textColor:[240,236,224],fontStyle:'bold',fontSize:8,lineWidth:0},
+    alternateRowStyles:{fillColor:TINT},
+    columnStyles:{0:{cellWidth:9,halign:'right',fontStyle:'bold'},1:{cellWidth:20},2:{cellWidth:23,fontStyle:'bold'},3:{cellWidth:19},4:{cellWidth:25},5:{cellWidth:11,halign:'right'},6:{cellWidth:34},7:{cellWidth:28},8:{cellWidth:21},9:{cellWidth:25},10:{cellWidth:'auto'}},
+    didDrawPage: d=>{ if(d.pageNumber>1) head(); }
+  });
+
+  // Zusammenfassung
+  let sy = doc.lastAutoTable.finalY + 12;
+  const needed = 22 + sum.length*7 + 40;
+  if(sy + needed > H-14){ doc.addPage(); head(); sy=36; }
+  doc.setTextColor(...GREEN); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Zusammenfassung nach Wildart', M, sy);
+  const tot = sum.reduce((a,s)=>({m:a.m+s.m,w:a.w+s.w,u:a.u+s.u,fall:a.fall+s.fall,n:a.n+s.n}),{m:0,w:0,u:0,fall:0,n:0});
+  doc.autoTable({
+    startY: sy+3, margin:{left:M,right:M,top:32,bottom:14},
+    head:[['Wildart','männlich','weiblich','unbek.','davon Fallwild','Gesamt','Ø kg','Aufteilung nach Altersklassen']],
+    body: sum.map(s=>[s.art, s.m||'–', s.w||'–', s.u||'–', s.fall||'–', s.n, s.kgN?kg(s.kg/s.kgN):'', Object.entries(s.ages).map(([a,n])=>n+'× '+a).join(', ')]),
+    foot: sum.length?[['Gesamt',tot.m,tot.w,tot.u,tot.fall,tot.n,'','']]:undefined,
+    theme:'plain',
+    styles:{font:'helvetica',fontSize:9,cellPadding:2.2,textColor:INK,lineColor:LINE,lineWidth:{bottom:0.25}},
+    headStyles:{fillColor:GREEN,textColor:[240,236,224],fontStyle:'bold',fontSize:8,lineWidth:0},
+    footStyles:{fillColor:TINT,textColor:INK,fontStyle:'bold',lineWidth:{top:0.5},lineColor:GREEN},
+    columnStyles:{0:{cellWidth:34,fontStyle:'bold'},1:{cellWidth:19,halign:'right'},2:{cellWidth:19,halign:'right'},3:{cellWidth:16,halign:'right'},4:{cellWidth:25,halign:'right'},5:{cellWidth:18,halign:'right',fontStyle:'bold'},6:{cellWidth:15,halign:'right'},7:{cellWidth:'auto'}},
+    didParseCell: d=>{ if(d.section!=='body'&&[1,2,3,4,5,6].includes(d.column.index)) d.cell.styles.halign='right'; },
+    didDrawPage: d=>{ if(d.pageNumber>1) head(); }
+  });
+
+  // Unterschrift
+  let uy = doc.lastAutoTable.finalY + 24;
+  if(uy > H-24){ doc.addPage(); head(); uy=60; }
+  doc.setDrawColor(...INK); doc.setLineWidth(0.3);
+  doc.line(M, uy, M+90, uy); doc.line(W-M-110, uy, W-M, uy);
+  doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.setFont('helvetica','normal');
+  doc.text('Ort, Datum', M, uy+4.5);
+  doc.text('Unterschrift Jagdausübungsberechtigte/r'+(settings.jaeger?' ('+settings.jaeger+')':''), W-M-110, uy+4.5);
+  doc.setFontSize(7.5);
+  const pages=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pages;p++){
+    doc.setPage(p); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica','normal');
+    doc.text(`Streckenliste ${jyLabel(y)}${settings.revier?' · '+settings.revier:''}  ·  erstellt am ${deDate(todayISO())}`, M, H-7);
+    doc.text(`Seite ${p} von ${pages}`, W-M, H-7, {align:'right'});
+  }
+  return doc;
+}
+function pdfName(y){ return `Streckenliste_${y}-${String((y+1)%100).padStart(2,'0')}${settings.revier?'_'+settings.revier.replace(/[^\wäöüÄÖÜß-]+/g,'_'):''}.pdf`; }
+
+async function shareFile(blob, name, title){
+  const file = new File([blob], name, {type: blob.type});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title, text:title}); return true; }
+    catch(e){ if(e.name==='AbortError') return true; }
+  }
+  download(blob, name); toast('Datei gespeichert (Downloads)'); return false;
+}
+function download(blob, name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000);
+}
+$('#pdfShare').onclick=()=>{ const doc=buildPdf(year); shareFile(doc.output('blob'), pdfName(year), 'Streckenliste Jagdjahr '+jyLabel(year)); };
+$('#pdfOpen').onclick=()=>{
+  const blob=buildPdf(year).output('blob'); const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank'); if(!w){ download(blob,pdfName(year)); toast('PDF gespeichert (Downloads)'); }
+};
+
+/* ---------- Einstellungen & Sicherung ---------- */
+const SF={sHelfer:'helfer',sHelferMail:'helferMail',sJaeger:'jaeger',sErleger:'erleger',sRevier:'revier',sRevNr:'revnr',sGroesse:'groesse',sKreis:'kreis'};
+$('#openSettings').onclick=()=>{
+  Object.entries(SF).forEach(([id,k])=>$('#'+id).value=settings[k]||'');
+  $('#lastBackup').textContent = settings.lastBackup ? 'Letzte Sicherung: '+new Date(settings.lastBackup).toLocaleDateString('de-DE') : 'Bisher keine Sicherung.';
+  openSheet('setSheet');
+};
+$('#setForm').addEventListener('submit',ev=>{ ev.preventDefault(); Object.entries(SF).forEach(([id,k])=>settings[k]=$('#'+id).value.trim()); saveSettings(); render(); toast('Einstellungen gespeichert'); });
+$('#backupBtn').onclick=async()=>{
+  const blob=new Blob([JSON.stringify({app:'streckenliste',version:1,exported:new Date().toISOString(),settings,entries:db.entries},null,1)],{type:'application/json'});
+  await shareFile(blob, `Streckenliste_Sicherung_${todayISO()}.json`, 'Sicherung Streckenliste');
+  settings.lastBackup=Date.now(); saveSettings();
+  $('#lastBackup').textContent='Letzte Sicherung: '+new Date().toLocaleDateString('de-DE');
+};
+$('#restoreBtn').onclick=()=>$('#restoreFile').click();
+$('#restoreFile').onchange=async ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!Array.isArray(data.entries)) throw new Error();
+    const known=new Map(db.entries.map(e=>[e.id,e])); let added=0;
+    data.entries.forEach(e=>{ if(!e||!e.id||!e.date||!e.art) return; const k=known.get(e.id); if(!k){added++; known.set(e.id,e);} else if((e.updated||0)>(k.updated||0)) known.set(e.id,e); });
+    db.entries=[...known.values()]; persist();
+    if(data.settings) settings={...data.settings,...Object.fromEntries(Object.entries(settings).filter(([,v])=>v))};
+    saveSettings(); render(); toast(`Sicherung eingespielt: ${added} neue Einträge`);
+  }catch(e){ toast('Diese Datei ist keine Streckenlisten-Sicherung.'); }
+  ev.target.value='';
+};
+$('#csvBtn').onclick=()=>{
+  const list=yearEntries(year);
+  const cols=['Nr.','Datum','Uhrzeit','Wildart','Geschlecht','Altersklasse','Gewicht kg','Ort','Erleger','Abgang','Wildmarke','Trichinen-Nr.','Verwertung','Alter','Besonderheiten'];
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const lines=[cols.map(q).join(';'), ...list.map((e,i)=>[i+1,deDate(e.date),e.time,e.art,sexText(e),e.age,e.weight!=null?kg(e.weight):'',e.ort,e.erleger,e.abgang,e.marke,e.trich,e.verw,e.alter,e.notiz].map(q).join(';'))];
+  shareFile(new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv'}), `Streckenliste_${year}-${String((year+1)%100).padStart(2,'0')}.csv`, 'Streckenliste '+jyLabel(year));
+};
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; $('#installBtn').hidden=false; });
+$('#installBtn').onclick=async()=>{ if(!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt=null; $('#installBtn').hidden=true; };
+
+/* ---------- Hilfe-Tickets ---------- */
+const APP_VERSION='1.2';
+const REPO='benjaminknackmuss-cmd/streckenliste';
+const TKEY='streckenliste.tickets.v1';
+let tickets = load(TKEY, []);
+function saveTickets(){ try{ localStorage.setItem(TKEY, JSON.stringify(tickets)); }catch(e){} }
+function nextTicketNo(){ const y=new Date().getFullYear(); const n=tickets.filter(t=>t.no.startsWith(y+'-')).length+1; return y+'-'+String(n).padStart(3,'0'); }
+function renderTickets(){
+  const box=$('#ticketList');
+  if(!tickets.length){ box.innerHTML='<p>Noch keine Meldungen.</p>'; return; }
+  box.innerHTML = tickets.slice().reverse().map(t=>`<div class="ticket">
+    <span><b>Nr. ${t.no}</b> · ${new Date(t.at).toLocaleDateString('de-DE')}</span>
+    <button type="button" class="st ${t.done?'':'open'}" data-no="${t.no}" aria-label="Status umschalten">${t.done?'erledigt':'offen'}</button>
+    <p>${esc(t.text)}</p></div>`).join('');
+}
+$('#ticketList').addEventListener('click',ev=>{ const b=ev.target.closest('.st'); if(!b) return; const t=tickets.find(x=>x.no===b.dataset.no); t.done=!t.done; saveTickets(); renderTickets(); });
+$('#openHelp').onclick=()=>{
+  $('#helpWho').textContent = settings.helfer
+    ? `Beschreiben Sie das Problem in eigenen Worten. Die Meldung geht an ${settings.helfer}, zum Beispiel per WhatsApp oder E-Mail.`
+    : 'Beschreiben Sie das Problem in eigenen Worten. Die Meldung geht als Nachricht raus, zum Beispiel per WhatsApp oder E-Mail.';
+  renderTickets(); openSheet('helpSheet');
+};
+function deviceInfo(){
+  const ua=navigator.userAgent, m=ua.match(/Android [\d.]+/), c=ua.match(/Chrome\/[\d]+/);
+  const inst = matchMedia('(display-mode: standalone)').matches ? 'installiert' : 'im Browser';
+  return [m?m[0]:navigator.platform, c?c[0]:'', inst].filter(Boolean).join(', ');
+}
+$('#helpForm').addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const text=$('#hText').value.trim();
+  if(!text){ toast('Bitte kurz beschreiben, was passiert ist.'); $('#hText').focus(); return; }
+  const no=nextTicketNo();
+  let body = `Streckenliste – Hilfe-Meldung Nr. ${no}\n\n${text}\n\n—\nVon: ${settings.jaeger||'unbekannt'}\nApp-Version ${APP_VERSION} · ${deviceInfo()}\nEinträge: ${db.entries.length} (Jagdjahr ${jyLabel(year)}: ${yearEntries(year).length})\nLetzte Sicherung: ${settings.lastBackup?new Date(settings.lastBackup).toLocaleDateString('de-DE'):'nie'}`;
+  // Link für Benjamin: legt die Meldung mit einem Tipp als GitHub-Ticket an, das Claude dann bearbeitet.
+  const issueBody = `${text}\n\n---\nMeldung Nr. ${no} aus der App\nApp-Version ${APP_VERSION} · ${deviceInfo()}\nEinträge: ${db.entries.length}`;
+  const issueUrl = `https://github.com/${REPO}/issues/new?labels=hilfe&title=${encodeURIComponent('Hilfe-Meldung '+no+': '+text.slice(0,60))}&body=${encodeURIComponent(issueBody)}`;
+  body += `\n\nFür ${settings.helfer||'den Helfer'}: als Ticket anlegen\n${issueUrl}`;
+  const files=[];
+  if($('#hData').checked) files.push(new File([JSON.stringify({app:'streckenliste',version:1,exported:new Date().toISOString(),settings,entries:db.entries},null,1)],`Meldung_${no}_Daten.json`,{type:'application/json'}));
+  const ph=$('#hPhoto').files[0]; if(ph) files.push(new File([ph],`Meldung_${no}_Foto.${(ph.name.split('.').pop()||'jpg')}`,{type:ph.type}));
+  const title=`Streckenliste: Hilfe-Meldung Nr. ${no}`;
+  let sent=false;
+  if(window.DEMO){ sent=true; }
+  else if(navigator.share){
+    try{
+      const data = files.length && navigator.canShare && navigator.canShare({files}) ? {title,text:body,files} : {title,text:body};
+      await navigator.share(data); sent=true;
+    }catch(e){ if(e.name==='AbortError'){ toast('Meldung nicht gesendet'); return; } }
+  }
+  if(!sent){
+    location.href=`mailto:${encodeURIComponent(settings.helferMail||'')}?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    sent=true;
+  }
+  tickets.push({no,at:Date.now(),text,done:false}); saveTickets();
+  $('#hText').value=''; $('#hPhoto').value='';
+  renderTickets();
+  toast(window.DEMO ? `Vorschau: Meldung Nr. ${no} angelegt (nicht gesendet)` : `Meldung Nr. ${no} erstellt`);
+});
+
+/* ---------- Start ---------- */
+render();
+if(!window.DEMO && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

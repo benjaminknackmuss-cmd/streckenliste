@@ -70,7 +70,9 @@ header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:14px 18p
 .tag.fall{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
 
 .empty{text-align:center;color:var(--muted);padding:36px 12px 12px}
-.empty svg{width:64px;height:64px;opacity:.5}
+.tiere{display:block;color:var(--forest);--tusk:var(--bg);overflow:visible}
+.tiere.big{width:100%;height:auto;margin:0 auto 12px;border-radius:var(--r);box-shadow:var(--shadow)}
+.tiere.foot{width:100%;height:auto;margin:28px auto 0;border-radius:var(--r);opacity:.95}
 .empty p{max-width:30ch;margin:8px auto}
 
 .spacer{height:calc(110px + env(safe-area-inset-bottom))}
@@ -175,6 +177,7 @@ details.more .inner{padding:0 16px 16px;display:flex;flex-direction:column;gap:1
   <div class="summary" id="summary"></div>
   <button class="add" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Abschuss eintragen</button>
   <div id="entries"></div>
+  <img class="tiere foot" id="tiereFoot" src="startbild.jpg" alt="">
   <button class="helplink" id="openHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Problem? Hilfe anfordern</button>
   <p class="ver" id="verMain"></p>
   <div class="spacer"></div>
@@ -445,8 +448,9 @@ function render(){
   $('#summary').hidden = list.length===0;
 
   const box = $('#entries');
+  $('#tiereFoot').style.display = list.length ? '' : 'none';
   if(!list.length){
-    box.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 2l5 7h-3l4 6h-3l3 5H6l3-5H6l4-6H7z"/><path d="M12 20v2"/></svg>
+    box.innerHTML = `<div class="empty"><img class="tiere big" src="startbild.jpg" alt="Keiler, Rothirsch und Fuchs an der Suhle">
       <p><b>Noch keine Einträge im Jagdjahr ${jyLabel(year)}${f!=='alle'&&multiRev()?' für '+esc(revName(f)):''}.</b></p><p>Tippen Sie auf „Abschuss eintragen“. Das geht auch ohne Netz.</p></div>`;
     return;
   }
@@ -774,7 +778,7 @@ window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEv
 $('#installBtn').onclick=async()=>{ if(!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt=null; $('#installBtn').hidden=true; };
 
 /* ---------- Hilfe-Tickets ---------- */
-const APP_VERSION='1.3';
+const APP_VERSION='1.4';
 const APP_DATE='27.11.2026';
 const REPO='benjaminknackmuss-cmd/streckenliste';
 const TKEY='streckenliste.tickets.v1';

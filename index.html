@@ -175,6 +175,12 @@ body.locked header.top, body.locked main, body.locked .bottombar, body.locked .s
 .revcard{border:1.5px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--surface-2)}
 .revcard .rh{display:flex;justify-content:space-between;align-items:center;font-weight:750}
 .revcard .rh button{background:none;border:0;color:var(--danger);font-weight:650;min-height:40px}
+.news{display:flex;flex-direction:column;gap:18px}
+.news .rel{border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px}
+.news h3{margin:0 0 4px;font-size:20px}
+.news .dat{color:var(--muted);font-size:15px;margin:0 0 8px}
+.news ul{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:18px;line-height:1.45}
+.news li b{display:block}
 .ver{text-align:center;color:var(--muted);font-size:14px;margin:4px 0 0;font-variant-numeric:tabular-nums}
 .preview{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .preview .ph{background:var(--forest);color:var(--on-forest);padding:14px 16px}
@@ -368,6 +374,18 @@ body.locked header.top, body.locked main, body.locked .bottombar, body.locked .s
 </section>
 
 <!-- Einstellungen -->
+<section class="sheet" id="newsSheet" hidden aria-labelledby="newsTitle">
+  <header><div class="wrap">
+    <button class="iconbtn sm" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <h2 id="newsTitle">Was ist neu?</h2>
+  </div></header>
+  <div class="wrap body news">
+    <p id="newsIntro" style="font-size:18px;margin:0"></p>
+    <div class="news" id="newsList"></div>
+    <button type="button" class="btn" id="newsOk" style="min-height:64px;font-size:20px">Verstanden</button>
+  </div>
+</section>
+
 <section class="sheet" id="setSheet" hidden>
   <header><div class="wrap">
     <button class="iconbtn sm" data-close aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
@@ -415,6 +433,11 @@ body.locked header.top, body.locked main, body.locked .bottombar, body.locked .s
       <h3>Als App auf den Startbildschirm</h3>
       <p>In Chrome oben rechts auf die drei Punkte tippen, dann „Zum Startbildschirm hinzufügen“ oder „App installieren“. Danach funktioniert die Streckenliste auch ohne Netz im Revier.</p>
       <button type="button" class="btn ghost" id="installBtn" hidden>Jetzt installieren</button>
+    </div>
+    <div class="card">
+      <h3>Was ist neu?</h3>
+      <p>Hier steht, was sich in der App mit den letzten Versionen geändert hat.</p>
+      <button type="button" class="btn ghost" id="newsBtn">Neuerungen ansehen</button>
     </div>
     <p class="ver" id="verSet"></p>
   </form>
@@ -1108,7 +1131,7 @@ window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEv
 $('#installBtn').onclick=async()=>{ if(!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt=null; $('#installBtn').hidden=true; };
 
 /* ---------- Hilfe-Tickets ---------- */
-const APP_VERSION='1.6';
+const APP_VERSION='1.7';
 const APP_DATE='27.11.2026';
 const REPO='benjaminknackmuss-cmd/streckenliste';
 const TKEY='streckenliste.tickets.v1';
@@ -1210,7 +1233,7 @@ function showLock(mode){
   if(mode==='code'){ $('#lockTitle').textContent='Wichtig: Code aufschreiben'; $('#lockText').textContent='Mit diesem Code können Sie ein vergessenes Passwort zurücksetzen. Bitte aufschreiben'+(settings.helfer?' oder an '+settings.helfer+' schicken':'')+' und gut aufheben.'; $('#lockCode').hidden=false; $('#lockBtn').textContent='Aufgeschrieben, weiter'; }
   setTimeout(()=>{ const f = mode==='reset'?$('#lCode'): mode==='code'?$('#lockBtn'): ($('#lUser').value?$('#lPass'):$('#lUser')); try{f.focus();}catch(e){} },50);
 }
-function unlock(){ $('#lock').hidden=true; document.body.classList.remove('locked'); try{ sessionStorage.setItem('streckenliste.offen','1'); }catch(e){} }
+function unlock(){ $('#lock').hidden=true; document.body.classList.remove('locked'); try{ sessionStorage.setItem('streckenliste.offen','1'); }catch(e){} maybeShowNews(); }
 function lockErr(msg){ const e=$('#lockErr'); e.textContent=msg; e.hidden=false; }
 $('#lockForgot').onclick=()=>showLock('reset');
 $('#lockForm').addEventListener('submit', async ev=>{
@@ -1255,6 +1278,49 @@ function startLock(){
   else if(open) unlock();
   else showLock('login');
 }
+
+/* ---------- Was ist neu? ----------
+   Bei JEDER neuen Version oben einen Eintrag ergänzen (einfache Worte, Sie-Form).
+   Nach einem Update zeigt die App die noch nicht gesehenen Einträge einmal an. */
+const NEUES = [
+  {v:'1.7', d:'27.11.2026', p:[
+    ['Diese Übersicht', 'Nach jedem Update zeigt die App einmal, was neu ist. Später finden Sie alles in den Einstellungen unter „Was ist neu?“.']
+  ]},
+  {v:'1.6', d:'27.11.2026', p:[
+    ['Abschuss einsprechen', 'Auf der Startseite gibt es den grünen Knopf „Abschuss einsprechen“. Sagen Sie einfach, was passiert ist, zum Beispiel: „Günther hat gestern um 23:12 einen Rehbock erlegt, 16 Kilo, Hochsitz Eichenwiese.“ Die App füllt die Felder aus. Bitte kurz prüfen und dann „Speichern“ drücken.'],
+    ['Mikrofon erlauben', 'Beim ersten Mal fragt Chrome, ob die App das Mikrofon benutzen darf. Bitte „Zulassen“ tippen.'],
+    ['Ohne Internet', 'Im Revier ohne Netz: in das Textfeld unter dem Knopf tippen und auf der Tastatur das Mikrofon drücken. Dann „Text übernehmen“.']
+  ]},
+  {v:'1.5', d:'27.11.2026', p:[
+    ['Anmeldung', 'Die App fragt beim Öffnen nach Benutzername und Passwort. Den Wiederherstellungs-Code bitte gut aufheben, damit hilft er bei einem vergessenen Passwort.']
+  ]},
+  {v:'1.4', d:'27.11.2026', p:[
+    ['Neues Bild', 'Fuchs, Hirsch und Keiler auf der Startseite und als App-Symbol.']
+  ]},
+  {v:'1.3', d:'27.11.2026', p:[
+    ['Mehrere Reviere', 'In den Einstellungen können Sie ein weiteres Revier anlegen. Beim Eintragen wählen Sie dann das Revier aus. Die Streckenliste gibt es je Revier oder für alle zusammen.'],
+    ['Versionsnummer', 'Ganz unten auf der Startseite steht, welche Version der App Sie haben.']
+  ]}
+];
+function verNum(v){ return String(v||'0').split('.').reduce((a,x,i)=>a+(+x||0)/Math.pow(1000,i),0); }
+function showNews(list, intro){
+  $('#newsIntro').textContent = intro;
+  $('#newsList').innerHTML = list.map((r,i)=>`<div class="rel"><h3>Version ${esc(r.v)}</h3><p class="dat">vom ${esc(r.d)}</p><ul>${r.p.map(([t,x])=>`<li><b>${esc(t)}</b>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+  openSheet('newsSheet'); $('#newsSheet').scrollTop=0;
+}
+function markNewsSeen(){ if(settings.seenVersion!==APP_VERSION){ settings.seenVersion=APP_VERSION; saveSettings(); } }
+function maybeShowNews(){
+  if(window.DEMO) return;
+  const seen = settings.seenVersion;
+  // Ganz neue Nutzer (noch keine Einträge) brauchen keine Liste der Änderungen.
+  if(!seen && !db.entries.length){ markNewsSeen(); return; }
+  if(seen && verNum(seen)>=verNum(APP_VERSION)) return;
+  const list = NEUES.filter(r=>!seen || verNum(r.v)>verNum(seen));
+  markNewsSeen();
+  if(list.length) showNews(list, 'Die App wurde aktualisiert. Das ist neu:');
+}
+$('#newsOk').onclick=()=>closeSheets();
+$('#newsBtn').onclick=()=>showNews(NEUES, '');
 
 /* ---------- Start ---------- */
 startLock();

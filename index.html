@@ -56,6 +56,22 @@ header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:14px 18p
 .add{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-block:12px 8px;min-height:68px;border:0;border-radius:var(--r);background:var(--accent);color:var(--accent-ink);font-size:21px;font-weight:700;box-shadow:var(--shadow)}
 .add svg{width:28px;height:28px}
 .add:active{transform:translateY(1px)}
+.add.voice{background:var(--forest);color:var(--on-forest);margin-top:0}
+@media (prefers-color-scheme:dark){.add.voice{background:var(--forest-2)}}
+.voicebox{border:2px solid color-mix(in srgb,var(--accent) 55%,var(--line));border-radius:var(--r);background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:12px}
+.voicebox .btn.mic{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);min-height:64px;font-size:20px}
+.voicebox .btn.mic svg{width:28px;height:28px}
+.voicebox .btn.mic.on{animation:hoeren 1.2s ease-in-out infinite}
+@keyframes hoeren{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 30%,transparent)}}
+.voicebox textarea{min-height:72px}
+.voicebox .hint{font-size:16px;color:var(--muted);margin:0;line-height:1.4}
+.voicebox .hint.warn,.voiceres .warn{color:var(--danger)}
+.voiceres{font-size:17px;line-height:1.4}
+.voiceres dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0}
+.voiceres dt{color:var(--muted)}
+.voiceres dd{margin:0;font-weight:700}
+.voiceres p{margin:6px 0 0}
+.vfill{box-shadow:0 0 0 3px var(--accent);border-radius:12px}
 
 .month{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px}
 .list{display:flex;flex-direction:column;gap:8px}
@@ -206,6 +222,7 @@ body.locked header.top, body.locked main, body.locked .bottombar, body.locked .s
   <div class="seg revfilter" id="revFilter" hidden></div>
   <div class="summary" id="summary"></div>
   <button class="add" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Abschuss eintragen</button>
+  <button class="add voice" id="voiceAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7"/></svg>Abschuss einsprechen</button>
   <div id="entries"></div>
   <img class="tiere foot" id="tiereFoot" src="startbild.jpg" alt="">
   <button class="helplink" id="openHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Problem? Hilfe anfordern</button>
@@ -226,6 +243,13 @@ body.locked header.top, body.locked main, body.locked .bottombar, body.locked .s
     <h2 id="formTitle">Neuer Abschuss</h2>
   </div></header>
   <form class="wrap body" id="entryForm" novalidate>
+    <div class="voicebox" id="voiceBox">
+      <button type="button" class="btn mic" id="micBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7"/></svg><span>Einsprechen</span></button>
+      <p class="hint" id="voiceHint" aria-live="polite"></p>
+      <textarea id="voiceText" rows="2" aria-label="Gesprochener Text" placeholder="Hier erscheint, was Sie gesagt haben. Sie können auch hier hineintippen."></textarea>
+      <button type="button" class="btn ghost" id="voiceApply" hidden>Text übernehmen</button>
+      <div class="voiceres" id="voiceRes" role="status" hidden></div>
+    </div>
     <div class="field" id="revField">
       <span class="lbl">Revier</span>
       <div class="seg" id="revSeg"></div>
@@ -520,7 +544,7 @@ $('#nextYear').onclick=()=>{year++;render();};
 /* ---------- Blätter ---------- */
 function openSheet(id){ document.querySelectorAll('.sheet').forEach(s=>s.hidden = s.id!==id); document.body.style.overflow='hidden'; history.pushState({sheet:id},''); }
 function closeSheets(fromPop){
-  if(!$('#setSheet').hidden){ settings = load(SKEY, settings); ensureReviere(); } document.querySelectorAll('.sheet').forEach(s=>s.hidden=true); document.body.style.overflow=''; if(!fromPop && history.state && history.state.sheet) history.back(); }
+  if(!$('#setSheet').hidden){ settings = load(SKEY, settings); ensureReviere(); } if(typeof srRec!=='undefined' && srRec){ try{ srRec.abort(); }catch(e){} } document.querySelectorAll('.sheet').forEach(s=>s.hidden=true); document.body.style.overflow=''; if(!fromPop && history.state && history.state.sheet) history.back(); }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeSheets());
 window.addEventListener('popstate',()=>closeSheets(true)); // Zurück-Taste auf Android schließt das Blatt
 
@@ -572,6 +596,7 @@ function openForm(id){
   $('#moreBox').open = !!(e && (e.marke||e.trich||e.verw||e.alter));
   $('#delBtn').hidden = !e; $('#delConfirm').hidden = true;
   $('#gpsHint').hidden = true;
+  resetVoice();
   fillLists(); drawForm();
   openSheet('formSheet'); $('#formSheet').scrollTop=0;
 }
@@ -617,6 +642,271 @@ $('#gpsBtn').onclick=()=>{
     hint.textContent=`Standort gespeichert (${lat}, ${lon}, ± ${Math.round(p.coords.accuracy)} m).`;
   },err=>{ hint.textContent = err.code===1 ? 'Standort-Freigabe wurde abgelehnt. In den Chrome-Einstellungen erlauben.' : 'Kein Standort gefunden. Bitte Ort von Hand eintragen.'; },{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
 };
+
+/* ---------- Spracheingabe: gesprochenen Satz auswerten (läuft komplett auf dem Handy) ---------- */
+const NUMW = {null:0,ein:1,eins:1,eine:1,einen:1,einem:1,einer:1,zwei:2,drei:3,vier:4,fünf:5,sechs:6,sieben:7,acht:8,neun:9,zehn:10,elf:11,zwölf:12,
+  dreizehn:13,vierzehn:14,fünfzehn:15,sechzehn:16,siebzehn:17,achtzehn:18,neunzehn:19,zwanzig:20,dreißig:30,vierzig:40,fünfzig:50,sechzig:60,siebzig:70,achtzig:80,neunzig:90,hundert:100};
+function wordNum(w){
+  w=w.toLowerCase();
+  if(w in NUMW) return NUMW[w];
+  const m=w.match(/^(ein|zwei|drei|vier|fünf|sechs|sieben|acht|neun)und(zwanzig|dreißig|vierzig|fünfzig|sechzig|siebzig|achtzig|neunzig)$/);
+  if(m) return NUMW[m[1]]+NUMW[m[2]];
+  return null;
+}
+const ORDW = {erst:1,zweit:2,dritt:3,viert:4,fünft:5,sechst:6,siebt:7,acht:8,neunt:9};
+function ordNum(w){
+  w=w.toLowerCase().replace(/(?:sten|ten|ter|te|tes)$/,'');
+  if(/^\d+$/.test(w)) return +w;
+  if(w in ORDW) return ORDW[w];
+  return wordNum(w);
+}
+const MONATE = ['januar','februar','märz','april','mai','juni','juli','august','september','oktober','november','dezember'];
+const TAGE = ['sonntag','montag','dienstag','mittwoch','donnerstag','freitag','samstag'];
+// Reihenfolge wichtig: genaue Begriffe zuerst. [Wort, Wildart, Geschlecht, Altersklasse]
+const ART_WORTE = [
+  ['bockkitz','Rehwild','m','Bockkitz'],['rickenkitz|geißkitz','Rehwild','w','Rickenkitz'],['schmalreh','Rehwild','w','Schmalreh'],
+  ['rehbock|reh bock|bock','Rehwild','m',''],['ricke','Rehwild','w','Ricke'],['rehkitz','Rehwild','',''],['rehwild|reh|rehe','Rehwild','',''],
+  ['frischlingskeiler|frischling keiler','Schwarzwild','m','Frischling'],['frischlingsbache|frischling bache','Schwarzwild','w','Frischling'],
+  ['überläuferkeiler|überläufer keiler','Schwarzwild','m','Überläufer'],['überläuferbache|überläufer bache','Schwarzwild','w','Überläufer'],
+  ['keiler','Schwarzwild','m','Keiler'],['bache','Schwarzwild','w','Bache'],['frischling','Schwarzwild','','Frischling'],['überläufer','Schwarzwild','','Überläufer'],
+  ['wildschwein|schwarzwild|sau|sauen|schwein','Schwarzwild','',''],
+  ['damhirsch|damspießer','Damwild','m',''],['damtier','Damwild','w',''],['damkalb|damwild','Damwild','',''],
+  ['sikahirsch','Sikawild','m',''],['sika|sikawild','Sikawild','',''],
+  ['hirschkalb','Rotwild','m','Hirschkalb'],['wildkalb','Rotwild','w','Wildkalb'],['schmalspießer|spießer','Rotwild','m','Schmalspießer'],
+  ['schmaltier','Rotwild','w','Schmaltier'],['alttier','Rotwild','w','Alttier'],['rothirsch|hirsch','Rotwild','m',''],['rotwild|rotkalb','Rotwild','',''],
+  ['muffelwidder|widder','Muffelwild','m',''],['muffel|mufflon|muffelwild','Muffelwild','',''],
+  ['gams|gämse|gemse|gamswild','Gamswild','',''],
+  ['jungfuchs','Fuchs','','Jungtier'],['füchsin','Fuchs','w',''],['fuchs|füchse','Fuchs','',''],
+  ['marderhund','Marderhund','',''],['waschbär|waschbären','Waschbär','',''],['dachs','Dachs','',''],
+  ['feldhase|hase|hasen','Feldhase','',''],['wildkaninchen|kaninchen|karnickel','Wildkaninchen','',''],
+  ['ringeltaube|taube|tauben','Ringeltaube','',''],['türkentaube','Türkentaube','',''],
+  ['fasanenhahn','Fasan','m',''],['fasanenhenne','Fasan','w',''],['fasan','Fasan','',''],['rebhuhn','Rebhuhn','',''],
+  ['krickente','Krickente','',''],['stockente|ente|enten','Stockente','',''],['erpel','Stockente','m',''],
+  ['graugans','Graugans','',''],['kanadagans','Kanadagans','',''],['nilgans','Nilgans','',''],
+  ['blässhuhn|blesshuhn','Blässhuhn','',''],['waldschnepfe|schnepfe','Waldschnepfe','',''],
+  ['rabenkrähe|krähe|krähen','Rabenkrähe','',''],['elster','Elster','',''],
+  ['baummarder','Baummarder','',''],['steinmarder|marder','Steinmarder','',''],['iltis','Iltis','',''],['hermelin','Hermelin','',''],
+  ['mink','Mink','',''],['nutria','Nutria','',''],['bisamratte|bisam','Bisam','','']
+];
+const SEX_WORTE = [['männlich|rüde|rammler|hahn|erpel|bock','m'],['weiblich|fähe|häsin|henne','w']];
+const ORT_WORTE = 'hochsitz|kanzel|ansitzleiter|leiter|ansitz|kirrung|drückjagdstand|stand|schirm|suhle|salzlecke|wildacker';
+const STOP = new Set(['hat','habe','hab','hatte','um','gestern','heute','vorgestern','erlegt','geschossen','beschossen','gestreckt','mit','und','kilo','kg','uhr','ein','eine','einen','stück','den','aufgebrochen','wiegt','gewicht','von','abends','nachts','morgens','früh']);
+
+function rx(words){ return new RegExp('(^|[^a-zäöüß])('+words+')(?:e|en|n|s|es|er)?(?![a-zäöüß])','i'); }
+function addDays(iso, n){ const [y,m,d]=iso.split('-').map(Number); const dt=new Date(y,m-1,d+n); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+function isoOf(y,m,d){ return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+
+function parseSpeech(text, ctx){
+  const r = {};
+  let t = ' '+String(text||'').replace(/\s+/g,' ').trim()+' ';
+  // Zahlwörter → Ziffern (Ordnungszahlen bleiben für das Datum)
+  t = t.replace(/[a-zäöüß]+/gi, w=>{ const n=wordNum(w); return (n===null || /^(ein|eine|einen|einem|einer)$/i.test(w)) ? w : String(n); });
+  t = t.replace(/(\d+)\s*komma\s*(\d+)/gi,'$1,$2');
+  const l = t.toLowerCase();
+  const today = ctx.today;
+
+  // Datum
+  let date=null, m;
+  if(/\bvorgestern\b/.test(l)) date=addDays(today,-2);
+  else if(/\bgestern\b/.test(l)) date=addDays(today,-1);
+  else if(/\bheute\b/.test(l)) date=today;
+  if((m = l.match(/(\d{1,2})\.\s?(\d{1,2})\.(?:\s?(\d{2,4}))?/))){
+    const d=+m[1], mo=+m[2]; let y=m[3]? +m[3] : null; if(y!=null && y<100) y+=2000;
+    if(d>=1&&d<=31&&mo>=1&&mo<=12){ date = isoOf(y||+today.slice(0,4), mo, d); if(!y && date>today) date=isoOf(+today.slice(0,4)-1,mo,d); }
+  } else if((m = l.match(new RegExp('(?:am|den)?\\s*([a-zäöüß]+|\\d{1,2}\\.?)\\s+('+MONATE.join('|')+')(?:\\s+(\\d{4}))?')))){
+    const d=ordNum(m[1].replace('.','')), mo=MONATE.indexOf(m[2])+1; let y=m[3]? +m[3] : null;
+    if(d && d>=1 && d<=31){ date=isoOf(y||+today.slice(0,4),mo,d); if(!y && date>today) date=isoOf(+today.slice(0,4)-1,mo,d); }
+  } else if(!date && (m = l.match(new RegExp('\\b('+TAGE.join('|')+')\\b')))){
+    const want=TAGE.indexOf(m[1]); const [y,mo,d]=today.split('-').map(Number); const wd=new Date(y,mo-1,d).getDay();
+    date=addDays(today, -((wd-want+7)%7));
+  }
+
+  // Uhrzeit
+  let time=null, hh=null, mm=0;
+  if((m = l.match(/\bum\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*uhr(?:\s*(\d{1,2}))?)?/))){ hh=+m[1]; mm=+(m[2]||m[3]||0); }
+  else if((m = l.match(/\b(\d{1,2}):(\d{2})\b/))){ hh=+m[1]; mm=+m[2]; }
+  else if((m = l.match(/\b(\d{1,2})\s*uhr(?:\s*(\d{1,2}))?/))){ hh=+m[1]; mm=+(m[2]||0); }
+  else if((m = l.match(/\bhalb\s+(\d{1,2})\b/))){ hh=(+m[1]+23)%24; mm=30; }
+  else if((m = l.match(/\bviertel\s+nach\s+(\d{1,2})\b/))){ hh=+m[1]; mm=15; }
+  else if((m = l.match(/\bviertel\s+vor\s+(\d{1,2})\b/))){ hh=(+m[1]+23)%24; mm=45; }
+  if(hh!=null && hh<24 && mm<60){
+    if(hh<12 && /\b(abends|abend|nachmittags|nachmittag)\b/.test(l)) hh+=12;
+    else if(hh>=7 && hh<12 && /\b(nachts|in der nacht|letzte nacht)\b/.test(l)) hh+=12;
+    time=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  }
+  if(!date && /\bletzte nacht\b/.test(l)) date = (time && time<'12:00') ? today : addDays(today,-1);
+  if(date) r.date=date;
+  if(time) r.time=time;
+
+  // Wildart, Geschlecht, Altersklasse
+  let artPos=-1;
+  for(const [w,art,sex,age] of ART_WORTE){
+    const mm2 = l.match(rx(w));
+    if(mm2){ r.art=art; if(sex) r.sex=sex; if(age) r.age=age; artPos=mm2.index; break; }
+  }
+  if(r.art){
+    if(!r.sex) for(const [w,s] of SEX_WORTE){ if(rx(w).test(l) && sexLabels(r.art)){ r.sex=s; break; } }
+    if(!r.age){
+      const cls = ageClasses(r.art, r.sex||'');
+      const kl = l.match(/klasse\s*(1|2|3|i{1,3})\b/);
+      if(kl){ const k={'1':'I','2':'II','3':'III'}[kl[1]]||kl[1].toUpperCase(); const c=cls.find(c=>c.endsWith('Kl. '+k)); if(c) r.age=c; }
+      if(!r.age){
+        const alias = [['kitz','kitz'],['jährling','jährling'],['kalb','kalb'],['lamm','lamm'],['jungtier|jung','jungtier'],['mehrjährig|ausgewachsen','mehrjährig|ausgewachsen'],['schmal','schmal']];
+        for(const c of [...cls].sort((a,b)=>b.length-a.length)){ if(l.includes(c.toLowerCase())){ r.age=c; break; } }
+        if(!r.age) for(const [w,sub] of alias){ if(rx(w).test(l)){ const c=cls.find(c=>new RegExp(sub,'i').test(c)); if(c){ r.age=c; break; } } }
+      }
+    }
+    // Anzahl: „2 Stück Rehwild“, „3 Füchse“
+    const before = l.slice(0, artPos+1);
+    const cm = l.match(/(\d+)\s*stück/) || before.match(/(\d+)\s+[a-zäöüß]*\s*$/);
+    if(cm && +cm[1]>1 && +cm[1]<50) r.anzahl=+cm[1];
+  }
+
+  // Gewicht
+  if((m = l.match(/(\d+(?:[.,]\d+)?)\s*(?:kilo|kg|kilogramm)/) || l.match(/(?:wiegt|gewicht|gewogen)\s*(?:von\s*)?(\d+(?:[.,]\d+)?)/))) r.weight=m[1].replace('.',',');
+
+  // Art des Abgangs
+  if(/(verkehr|wildunfall|unfall|angefahren|überfahren|auto|zug erfasst)/.test(l)) r.abgang='Fallwild Verkehr';
+  else if(/(fallwild|verendet|tot aufgefunden|tot gefunden|eingegangen)/.test(l)) r.abgang='Fallwild sonstig';
+  else if(/(erlegt|geschossen|beschossen|gestreckt|geschoßen)/.test(l)) r.abgang='Erlegt';
+
+  // Erleger
+  const words = t.trim().split(' ');
+  if(/^\s*(ich|hab ich|habe ich)\b/i.test(t) || /\b(ich habe|ich hab|hab ich|habe ich)\b/.test(l)){ if(ctx.ich) r.erleger=ctx.ich; }
+  if(!r.erleger){
+    const known = (ctx.erleger||[]).filter(Boolean);
+    for(const k of known){ const first=k.split(/\s+/)[0].toLowerCase(); if(first.length>2 && (l.includes(k.toLowerCase()) || rx(first.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(l))){ r.erleger=k; break; } }
+  }
+  if(!r.erleger){
+    const nm = t.match(/(?:[Ee]rleger(?:\s+ist|\s+war)?|[Ss]chütze(?:\s+ist|\s+war)?|von)\s+([A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?)(?=[\s,.;:]|$)/)
+          || t.match(/^\s*([A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?)\s+(?:hat|hatte)\b/);
+    if(nm){
+      const cand=nm[1].trim(); const fw=cand.split(' ')[0].toLowerCase();
+      const bad = /^(heute|gestern|vorgestern|am|um|ein|eine|einen|der|die|das|wir|er|sie|es|man|mein|meine|unser|hier|dann|jetzt|letzte|im|auf|an|in)$/;
+      if(!bad.test(fw) && !ART_WORTE.some(([w])=>rx(w).test(fw)) && !/\d/.test(cand) && !MONATE.includes(fw) && !TAGE.includes(fw)) r.erleger=cand;
+    }
+  }
+
+  // Revier
+  (ctx.reviere||[]).forEach((rv,i)=>{ if(!r.revier && rv.name && rv.name.trim().length>2 && l.includes(rv.name.trim().toLowerCase())) r.revier=rv.id; });
+  if(!r.revier && (m = l.match(/revier\s*(\d)\b/) || l.match(/\b(erste|zweite|dritte)[nms]?\s+revier/))){
+    const i = {erste:1,zweite:2,dritte:3}[m[1]] || +m[1];
+    if(ctx.reviere && ctx.reviere[i-1]) r.revier=ctx.reviere[i-1].id;
+  }
+
+  // Ort
+  for(const o of (ctx.orte||[])){ if(o && o.length>2 && l.includes(o.toLowerCase())){ r.ort=o; break; } }
+  if(!r.ort && (m = t.match(new RegExp('\\b('+ORT_WORTE+')\\b(.*)','i')))){
+    const rest = m[2].trim().split(/\s+/); const parts=[m[1][0].toUpperCase()+m[1].slice(1).toLowerCase()];
+    for(const w of rest){ const c=w.replace(/[.,;:!?]+$/,''); if(!c || STOP.has(c.toLowerCase()) || /\d/.test(c) || parts.length>=4) break; parts.push(c); if(c!==w) break; }
+    while(parts.length>1 && /^(am|an|der|die|das|im|in|auf|beim|bei|zum|zur)$/i.test(parts[parts.length-1])) parts.pop();
+    r.ort=parts.join(' ');
+  }
+  if(!r.ort && (m = t.match(/\b(?:auf|an|am|im|in|bei|beim)\s+(?:der|dem|den)?\s*([A-ZÄÖÜ][a-zäöüß]+(?:wiese|feld|wald|acker|holz|berg|grund|bruch|weg|graben|busch|tal|hang|schlag|ecke|kopf|loch|teich|see|bach|heide|moor|kamp|äcker|wiesen|felder))\b/))) r.ort=m[1];
+  if(!r.ort && (m = t.match(/\bort\s+(?:ist\s+|war\s+)?([^,.;]+)/i))) r.ort=m[1].trim().split(/\s+/).slice(0,4).join(' ');
+
+  // Wildmarke, Trichinenprobe
+  if((m = l.match(/wildmarke\s*(?:nummer|nr\.?)?\s*([\w-]*\d[\w-]*)/))) r.marke=m[1].toUpperCase();
+  if((m = l.match(/trichinen(?:probe)?\s*(?:nummer|nr\.?)?\s*([\w-]*\d[\w-]*)/))) r.trich=m[1].toUpperCase();
+
+  // Besonderheiten
+  const notes=[];
+  if((m = t.match(/\b(?:besonderheit(?:en)?|bemerkung|notiz)\s*:?\s*(?:ist|sind|war)?\s*(.+)$/i))) notes.push(m[1].trim().replace(/[.\s]+$/,''));
+  else {
+    if(/nachsuche/.test(l)) notes.push(/mit (dem )?hund/.test(l)?'Nachsuche mit Hund':'Nachsuche');
+    if(/krank/.test(l)) notes.push('krank erlegt');
+    if(/abnorm/.test(l)) notes.push('abnorm');
+    if(/kümmerer/.test(l)) notes.push('Kümmerer');
+  }
+  if(notes.length) r.notiz=notes.join(', ');
+  return r;
+}
+
+/* ---------- Spracheingabe: Knopf, Erkennung, Formular füllen ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// Hinweis: Die neue Chrome-Funktion „processLocally“ wird bewusst nicht benutzt (brachte die Seite im Test zum Absturz).
+let srRec = null, srText = '';
+function voiceMsg(html, warn){ const h=$('#voiceHint'); h.innerHTML=html; h.classList.toggle('warn', !!warn); }
+const KEYBOARD_TIP = 'Tippen Sie dann einfach in das Feld unten und drücken Sie auf der Tastatur das <b>Mikrofon</b>. Das geht auch ohne Internet, wenn die deutsche Offline-Spracherkennung der Tastatur geladen ist.';
+function voiceBusy(on){
+  const b=$('#micBtn'); b.classList.toggle('on', on);
+  b.querySelector('span').textContent = on ? 'Ich höre zu … (zum Beenden tippen)' : 'Einsprechen';
+}
+function startVoice(){
+  if(srRec){ try{ srRec.stop(); }catch(e){} return; }
+  if(!SR){ voiceMsg('Auf diesem Gerät kann die App selbst nicht zuhören. '+KEYBOARD_TIP, true); $('#voiceText').focus(); return; }
+  const rec = new SR();
+  rec.lang='de-DE'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+  srText=''; let err='';
+  rec.onresult = ev=>{
+    let s=''; for(let i=0;i<ev.results.length;i++) s+=ev.results[i][0].transcript;
+    srText=s; $('#voiceText').value=s;
+  };
+  rec.onerror = ev=>{ err=ev.error; };
+  rec.onend = ()=>{
+    srRec=null; voiceBusy(false);
+    if(srText.trim()){ applyVoice(srText); return; }
+    if(err==='not-allowed'||err==='service-not-allowed') voiceMsg('Die App darf das Mikrofon nicht benutzen. Bitte erlauben: In Chrome oben links auf das Schloss tippen → Berechtigungen → Mikrofon → Zulassen.', true);
+    else if(err==='network' || !navigator.onLine) voiceMsg('Ohne Internet kann die App hier nicht selbst zuhören. '+KEYBOARD_TIP, true);
+    else if(err==='no-speech'||!err) voiceMsg('Ich habe nichts gehört. Bitte noch einmal auf „Einsprechen“ tippen und deutlich sprechen.', true);
+    else if(err!=='aborted') voiceMsg('Das Zuhören hat nicht geklappt. '+KEYBOARD_TIP, true);
+  };
+  try{ rec.start(); srRec=rec; voiceBusy(true); voiceMsg('Sprechen Sie jetzt, z. B.: „Günther hat gestern um 23:12 einen Rehbock erlegt, 16 Kilo, Hochsitz Eichenwiese.“'); }
+  catch(e){ voiceMsg('Das Zuhören hat nicht geklappt. '+KEYBOARD_TIP, true); }
+}
+function applyVoice(text){
+  const r = parseSpeech(text, {
+    today: todayISO(), ich: settings.erleger || settings.jaeger || '',
+    erleger: [...new Set([settings.erleger, settings.jaeger, ...db.entries.map(e=>e.erleger)].filter(Boolean))],
+    orte: [...new Set(db.entries.map(e=>e.ort).filter(Boolean))].sort((a,b)=>b.length-a.length),
+    reviere: settings.reviere
+  });
+  const got=[], mark=[];
+  if(r.revier && multiRev()){ form.revier=r.revier; got.push(['Revier', revName(r.revier)]); mark.push('#revSeg'); }
+  if(r.art){
+    if(r.art!==form.art){ form.art=r.art; form.sex=''; form.age=''; }
+    got.push(['Wildart', r.art]); mark.push(QUICK.includes(r.art)?'#artGrid':'#artMore');
+  }
+  if(r.sex){ form.sex=r.sex; got.push(['Geschlecht', sexLabels(form.art)[r.sex==='m'?0:1]]); mark.push('#sexSeg'); }
+  if(r.age && ageClasses(form.art, form.sex).includes(r.age)){ form.age=r.age; got.push(['Altersklasse', r.age]); mark.push('#ageSeg'); }
+  if(r.abgang){ form.abgang=r.abgang; got.push(['Abgang', r.abgang]); mark.push('#abgangSeg'); }
+  if(r.date){ $('#fDate').value=r.date; got.push(['Datum', deDate(r.date)]); mark.push('#fDate'); if(!r.time && r.date!==todayISO()) $('#fTime').value=''; }
+  if(r.time){ $('#fTime').value=r.time; got.push(['Uhrzeit', r.time+' Uhr']); mark.push('#fTime'); }
+  if(r.erleger){ $('#fErleger').value=r.erleger; got.push(['Erleger', r.erleger]); mark.push('#fErleger'); }
+  if(r.ort){ $('#fOrt').value=r.ort; got.push(['Ort', r.ort]); mark.push('#fOrt'); }
+  if(r.weight){ $('#fGewicht').value=r.weight; got.push(['Gewicht', r.weight+' kg']); mark.push('#fGewicht'); }
+  if(r.notiz){ const n=$('#fNotiz'); n.value = n.value.trim() ? n.value.trim()+', '+r.notiz : r.notiz; got.push(['Besonderheiten', r.notiz]); mark.push('#fNotiz'); }
+  if(r.marke||r.trich){ $('#moreBox').open=true; }
+  if(r.marke){ $('#fMarke').value=r.marke; got.push(['Wildmarke', r.marke]); mark.push('#fMarke'); }
+  if(r.trich){ $('#fTrich').value=r.trich; got.push(['Trichinenprobe', r.trich]); mark.push('#fTrich'); }
+  drawForm();
+  const res=$('#voiceRes');
+  if(!got.length){
+    res.hidden=true;
+    voiceMsg('Ich habe leider nichts Passendes verstanden. Bitte noch einmal versuchen oder die Felder unten von Hand ausfüllen.', true);
+  } else {
+    res.innerHTML = '<b>Das habe ich verstanden:</b><dl>'+got.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')+'</dl>'
+      + (r.anzahl>1 ? `<p class="warn">Sie haben ${r.anzahl} Stück genannt. Jedes Stück bitte einzeln eintragen: erst dieses speichern, dann das nächste.</p>` : '')
+      + '<p>Bitte unten kurz prüfen (farbig markiert). Wenn alles stimmt: <b>Speichern</b>.</p>';
+    res.hidden=false;
+    voiceMsg('Fertig. Sie können auch noch einmal einsprechen, um etwas zu ergänzen.');
+    mark.forEach(sel=>{ const el=$(sel); if(el){ el.classList.remove('vfill'); void el.offsetWidth; el.classList.add('vfill'); } });
+  }
+  $('#voiceApply').hidden=true;
+  $('#voiceText').dataset.applied=text;
+}
+function resetVoice(){
+  if(srRec){ try{ srRec.abort(); }catch(e){} srRec=null; }
+  voiceBusy(false);
+  $('#voiceText').value=''; $('#voiceText').dataset.applied='';
+  $('#voiceRes').hidden=true; $('#voiceApply').hidden=true;
+  document.querySelectorAll('.vfill').forEach(el=>el.classList.remove('vfill'));
+  voiceMsg('Einfach sagen, was passiert ist, z. B.: „Günther hat gestern um 23:12 einen Rehbock erlegt, 16 Kilo, Hochsitz Eichenwiese.“');
+}
+$('#micBtn').onclick = startVoice;
+$('#voiceText').addEventListener('input', e=>{ const v=e.target.value.trim(); $('#voiceApply').hidden = !v || v===e.target.dataset.applied; });
+$('#voiceApply').onclick = ()=>{ const v=$('#voiceText').value.trim(); if(v) applyVoice(v); };
+$('#voiceAddBtn').onclick = ()=>{ openForm(null); startVoice(); };
 
 /* ---------- Auswertung ---------- */
 function summarize(list){
@@ -818,7 +1108,7 @@ window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEv
 $('#installBtn').onclick=async()=>{ if(!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt=null; $('#installBtn').hidden=true; };
 
 /* ---------- Hilfe-Tickets ---------- */
-const APP_VERSION='1.5';
+const APP_VERSION='1.6';
 const APP_DATE='27.11.2026';
 const REPO='benjaminknackmuss-cmd/streckenliste';
 const TKEY='streckenliste.tickets.v1';
